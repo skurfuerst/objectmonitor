@@ -1,0 +1,58 @@
+h1. Goal of this project
+
+Here, you find a PHP extension which can effectively monitor changes of object properties.
+
+*Warning: This PHP Extension is alpha quality.* Do not use in production contexts yet.
+
+This is really helpful for the TYPO3 Extbase and FLOW3 projects, as right now, changes of objects are detected by having every object property cloned, and in the end iterating over all objects which have been loaded, checking each of the properties. As you can imagine, this can become really slow if many objects are instanciated.
+
+h1. API
+
+pre. // Registers an object to be monitored for changes from this point on.
+objectmonitor_register_object($objectInstance);
+
+pre. // Gets all changed objects and their changed properties
+objectmonitor_get_changes();
+
+@objectmonitor_get_changes()@ returns an array consisting of other arrays, one for every changed object. These arrays contain a special key __instance, which contains a reference to the object itself, and all changed properties and their new values.
+
+h1. Example
+
+bc..class A {
+	public $firstProperty;
+	public $secondProperty;
+}
+
+$instance = new A();
+$anotherInstance = new A();
+
+$instance->firstProperty = "This is not recorded";
+
+objectmonitor_register_object($instance);
+objectmonitor_register_object($anotherInstance);
+
+$instance->secondProperty = "Change to second property";
+$anotherInstance->firstProperty = "Change 1";
+$anotherInstance->firstProperty = "Change 2";
+
+var_dump(objectmonitor_get_changes());
+
+p. Now, the output is as follows (in the var_dump at the bottom)
+
+bc..array(2) {
+  [1] => array(2) {
+    ["__object"] => (the first object here)
+    ["secondProperty"] => string(25) "Change to second property"
+  }
+  [2] => array(2) {
+    ["__object"] => (the second object here)
+    ["firstProperty"] => string(8) "Change 2"
+  }
+}
+
+p. Here, you can see the following things:
+
+* Changes are just recorded after the @register_object@ has been called.
+* @__object@ contains a reference to the object, in case one needs it
+* only changed properties and their values are included in the resulting array.
+
