@@ -12,7 +12,7 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author:                                                              |
+  | Author: Sebastian Kurfürst                                           |
   +----------------------------------------------------------------------+
 */
 
@@ -48,31 +48,27 @@ PHP_FUNCTION(objectmonitor_get_changes);
 ZEND_BEGIN_ARG_INFO_EX(php_objectmonitor_getchanges_arginfo, 0, 1, 0)
 ZEND_END_ARG_INFO()
 
-
+/**
+ * Use the "OBJECTMONITOR_G" macro to access the data structures inside here.
+ */
 ZEND_BEGIN_MODULE_GLOBALS(objectmonitor)
     /*
-     * The modified object handler table; with write_property wrapped, so to remember what has been written
+     * The modified object handler table; with write_property adjusted,
+     * so we can remember which properties have been written
      */
     zend_object_handlers object_handlers;
 
     /**
-     * The original write property handler to call
+     * The original write property handler
      */
     zend_object_write_property_t original_write_property_handler;
 
+    /**
+     * The array of changed objects and their changed propertiey.
+     * This array is directly returned with the function "objectmonitor_get_changes".
+     */
     zval* list_of_changed_objects;
 ZEND_END_MODULE_GLOBALS(objectmonitor)
-
-
-/* In every utility function you add that needs to use variables 
-   in php_objectmonitor_globals, call TSRMLS_FETCH(); after declaring other 
-   variables used by that function, or better yet, pass in TSRMLS_CC
-   after the last function argument and declare your utility function
-   with TSRMLS_DC after the last declared argument.  Always refer to
-   the globals in your function as OBJECTMONITOR_G(variable).  You are 
-   encouraged to rename these macros something shorter, see
-   examples in any other php module directory.
-*/
 
 #ifdef ZTS
 #define OBJECTMONITOR_G(v) TSRMG(objectmonitor_globals_id, zend_objectmonitor_globals *, v)

@@ -12,7 +12,7 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author:                                                              |
+  | Author: Sebastian Kurfürst                                           |
   +----------------------------------------------------------------------+
 */
 
@@ -28,9 +28,6 @@
 #include "php_objectmonitor.h"
 
 ZEND_DECLARE_MODULE_GLOBALS(objectmonitor)
-
-/* True global resources - no need for thread safety here */
-static int le_objectmonitor;
 
 /* {{{ objectmonitor_functions[]
  *
@@ -53,8 +50,8 @@ zend_module_entry objectmonitor_module_entry = {
 	objectmonitor_functions,
 	PHP_MINIT(objectmonitor),
 	PHP_MSHUTDOWN(objectmonitor),
-	PHP_RINIT(objectmonitor),		/* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(objectmonitor),	/* Replace with NULL if there's nothing to do at request end */
+	PHP_RINIT(objectmonitor),
+	PHP_RSHUTDOWN(objectmonitor),
 	PHP_MINFO(objectmonitor),
 #if ZEND_MODULE_API_NO >= 20010901
 	"0.1", /* Replace with version number for your extension */
@@ -67,35 +64,20 @@ zend_module_entry objectmonitor_module_entry = {
 ZEND_GET_MODULE(objectmonitor)
 #endif
 
-/* {{{ PHP_INI
+/**
+ * This is the "write property" handler which is being called if a write occurs
+ * to a monitored object.
+ *
+ * @param zval* object The object which is changed
+ * @param zval* property The name of the property which is changed
+ * @param zval* value The new value of the property.
  */
-/* Remove comments and fill if you need to have entries in php.ini
-PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("objectmonitor.global_value",      "42", PHP_INI_ALL, OnUpdateLong, global_value, zend_objectmonitor_globals, objectmonitor_globals)
-    STD_PHP_INI_ENTRY("objectmonitor.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_objectmonitor_globals, objectmonitor_globals)
-PHP_INI_END()
-*/
-/* }}} */
-
-/* {{{ php_objectmonitor_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_objectmonitor_init_globals(zend_objectmonitor_globals *objectmonitor_globals)
-{
-	objectmonitor_globals->global_value = 0;
-	objectmonitor_globals->global_string = NULL;
-}
-*/
-/* }}} */
-
-
-void php_objectmonitor_write_property_handler(zval *obj, zval *property, zval *value TSRMLS_DC) {
+void php_objectmonitor_write_property_handler(zval *object, zval *property, zval *value TSRMLS_DC) {
 	zend_object_handle handleOfCurrentObject;
-	
 	zval* propertyArray;
 	zval** propertyArray_p;
 
-	handleOfCurrentObject = Z_OBJ_HANDLE(*obj);
+	handleOfCurrentObject = Z_OBJ_HANDLE(*object);
 
 	if (zend_hash_index_find(Z_ARRVAL_P(OBJECTMONITOR_G(list_of_changed_objects)), handleOfCurrentObject, (void **)&propertyArray_p) == FAILURE) {
 		// Array entry for current object not found -> create it!
@@ -103,36 +85,44 @@ void php_objectmonitor_write_property_handler(zval *obj, zval *property, zval *v
 		array_init(propertyArray);
 
 		// Add the current object to the array, as we might need it lateron.
-		add_assoc_zval(propertyArray, "__object", obj);
-		zval_addref_p(obj);
+		add_assoc_zval(propertyArray, "__object", object);
+		zval_addref_p(object);
 
 		add_index_zval(OBJECTMONITOR_G(list_of_changed_objects), handleOfCurrentObject, propertyArray);
 	} else {
 		propertyArray = *propertyArray_p;
 	}
 
-	// Add element to inner entry
+	// Add value to inner array
 	// as the value is is stored here, we need to increase the ref count of it properly; else, strange things will happen
 	zval_addref_p(value);
-
 	add_assoc_zval(propertyArray, Z_STRVAL_P(property), value);
 
-	// call original property handler to actually change the property.
-	OBJECTMONITOR_G(original_write_property_handler)(obj, property, value TSRMLS_DC);
-	zval_ptr_dtor(&property);
-	//zval_ptr_dtor(&value);
+	// call original property handler to actually change the property / call __set etc..
+	OBJECTMONITOR_G(original_write_property_handler)(object, property, value TSRMLS_DC);
 }
 
+/**
+ * Constructor for building up global data structures.
+ *
+ * This function creates a new object_handlers list, and replaces the write_property handler
+ * by the modified function above
+ */
 static void php_objectmonitor_globals_ctor(zend_objectmonitor_globals *objectmonitor_globals TSRMLS_DC) {
 	objectmonitor_globals->object_handlers = *zend_get_std_object_handlers();
 	objectmonitor_globals->original_write_property_handler = objectmonitor_globals->object_handlers.write_property;
 	objectmonitor_globals->object_handlers.write_property = php_objectmonitor_write_property_handler;
 }
 
+/**
+ * Destructor for global data structures. We don't need anything right now here.
+ */
 static void php_objectmonitor_globals_dtor(zend_objectmonitor_globals *objectmonitor_globals TSRMLS_DC) {
 	// Destructor.
 }
+
 /* {{{ PHP_MINIT_FUNCTION
+ * Standard MINIT function.
  */
 PHP_MINIT_FUNCTION(objectmonitor)
 {
@@ -145,13 +135,12 @@ PHP_MINIT_FUNCTION(objectmonitor)
 		php_objectmonitor_globals_ctor(&objectmonitor_globals);
 	#endif
 
-	
-
 	return SUCCESS;
 }
 /* }}} */
 
 /* {{{ PHP_MSHUTDOWN_FUNCTION
+ * Standard MSHUTDOWN function
  */
 PHP_MSHUTDOWN_FUNCTION(objectmonitor)
 {
@@ -162,8 +151,8 @@ PHP_MSHUTDOWN_FUNCTION(objectmonitor)
 }
 /* }}} */
 
-/* Remove if there's nothing to do at request start */
-/* {{{ PHP_RINIT_FUNCTION
+/* {{{ PHP_RINIT_FUNCTION Called at every request start
+ * Initialize the list_of_changed_objects with an empty array
  */
 PHP_RINIT_FUNCTION(objectmonitor)
 {
@@ -174,7 +163,8 @@ PHP_RINIT_FUNCTION(objectmonitor)
 }
 /* }}} */
 
-/* {{{ PHP_RSHUTDOWN_FUNCTION
+/* {{{ PHP_RSHUTDOWN_FUNCTION Called at end of every request
+ * removes the array list_of_changed_objects again.
  */
 PHP_RSHUTDOWN_FUNCTION(objectmonitor)
 {
@@ -183,7 +173,7 @@ PHP_RSHUTDOWN_FUNCTION(objectmonitor)
 }
 /* }}} */
 
-/* {{{ PHP_MINFO_FUNCTION
+/* {{{ PHP_MINFO_FUNCTION - To be displayed in PHPinfo.
  */
 PHP_MINFO_FUNCTION(objectmonitor)
 {
@@ -191,31 +181,29 @@ PHP_MINFO_FUNCTION(objectmonitor)
 	php_info_print_table_header(2, "objectmonitor support", "enabled");
 	php_info_print_table_end();
 
-	/* Remove comments if you have entries in php.ini
-	DISPLAY_INI_ENTRIES();
-	*/
+	// Remove comments if you have entries in php.ini
+	//DISPLAY_INI_ENTRIES();
 }
 /* }}} */
 
-
-/* {{{ proto string confirm_objectmonitor_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
+/* {{{ proto string objectmonitor_register_object(object $objectToRegister)
+   Registers an object (instance) for property change monitoring. */
 PHP_FUNCTION(objectmonitor_register_object)
 {
 	zval* object_to_register;
-
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "o", &object_to_register) == FAILURE) {
 		return;
 	}
-	php_printf("Refcount on init: %d\n", zval_refcount_p(object_to_register));
 
 	Z_OBJ_HT_P(object_to_register) = &OBJECTMONITOR_G(object_handlers);
-	// TODO: do we need to increase the refcount to prevent garbage collection?
 }
 /* }}} */
 
-/* {{{ proto string confirm_objectmonitor_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
+/* {{{ proto string objectmonitor_get_changes()
+   Return an array of arrays with all changed objects. The inner array
+   consists of all changed property names as array keys, and the new values.
+   Additionally, this array has a special property __object which contains a
+   reference to the instance */
 PHP_FUNCTION(objectmonitor_get_changes)
 {
 	zval_ptr_dtor(return_value_ptr);
