@@ -64,8 +64,8 @@ h1. More possible uses
 h1. Installation
 
 Installation works the same as with a normal PHP extension (NOT on Windows right now!)
-<pre>
-phpize
+
+<pre>phpize
 ./configure --enable-objectmonitor
 make
 make install
