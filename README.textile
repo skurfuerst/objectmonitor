@@ -14,7 +14,7 @@ objectmonitor_register_object($objectInstance);
 pre. // Gets all changed objects and their changed properties
 objectmonitor_get_changes();
 
-@objectmonitor_get_changes()@ returns an array consisting of other arrays, one for every changed object. These arrays contain a special key __instance, which contains a reference to the object itself, and all changed properties and their new values.
+@objectmonitor_get_changes()@ returns an array consisting of other arrays, one for every changed object. These arrays contain a special key @__object@, which contains a reference to the object itself, and all changed properties and their new values.
 
 h1. Example
 
