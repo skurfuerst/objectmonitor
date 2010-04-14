@@ -1,9 +1,9 @@
 --TEST--
-Check for objectmonitor presence
+Checks for basic functionality to work
 --SKIPIF--
 <?php if (!extension_loaded("objectmonitor")) print "skip"; ?>
 --FILE--
-<?php 
+<?php
 echo "objectmonitor extension is available";
 /*
 	you can add regression tests for your extension here

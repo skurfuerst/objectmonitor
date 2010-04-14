@@ -78,7 +78,7 @@ void php_objectmonitor_write_property_handler(zval *object, zval *property, zval
 	zval** propertyArray_p;
 
 	handleOfCurrentObject = Z_OBJ_HANDLE(*object);
-
+	
 	if (zend_hash_index_find(Z_ARRVAL_P(OBJECTMONITOR_G(list_of_changed_objects)), handleOfCurrentObject, (void **)&propertyArray_p) == FAILURE) {
 		// Array entry for current object not found -> create it!
 		MAKE_STD_ZVAL(propertyArray);
