@@ -18,7 +18,7 @@ objectmonitor_get_changes();
 
 h1. Example
 
-bc..class A {
+<pre>class A {
 	public $firstProperty;
 	public $secondProperty;
 }
@@ -36,10 +36,11 @@ $anotherInstance->firstProperty = "Change 1";
 $anotherInstance->firstProperty = "Change 2";
 
 var_dump(objectmonitor_get_changes());
+</pre>
 
 p. Now, the output is as follows (in the var_dump at the bottom)
 
-bc..array(2) {
+<pre>array(2) {
   [1] => array(2) {
     ["__object"] => (the first object here)
     ["secondProperty"] => string(25) "Change to second property"
@@ -49,10 +50,28 @@ bc..array(2) {
     ["firstProperty"] => string(8) "Change 2"
   }
 }
-
+</pre>
 p. Here, you can see the following things:
 
 * Changes are just recorded after the @register_object@ has been called.
 * @__object@ contains a reference to the object, in case one needs it
 * only changed properties and their values are included in the resulting array.
 
+h1. More possible uses
+
+* The persistence framework does not need to keep a reference to every reconstituted object. If the refcount of an object reaches 0, it is automatically destroyed if no changes occured before.
+
+h1. Installation
+
+Installation works the same as with a normal PHP extension (NOT on Windows right now!)
+<pre>
+phpize
+./configure --enable-objectmonitor
+make
+make install
+</pre>
+
+h1. ToDo
+
+* Test with thread safety enabled
+* create unit tests for it.
