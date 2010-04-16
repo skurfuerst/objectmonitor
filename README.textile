@@ -76,3 +76,4 @@ h1. ToDo
 * Test with thread safety enabled
 * create unit tests for it.
 * Decide how to support __set-Methods. Right now, they generate "false positives".
+* How are changes on arrays / SplObjectStorage monitored? Discussion needed!
