@@ -72,13 +72,17 @@ ZEND_GET_MODULE(objectmonitor)
  * @param zval* property The name of the property which is changed
  * @param zval* value The new value of the property.
  */
+#if PHP_VERSION_ID < 50399
 void php_objectmonitor_write_property_handler(zval *object, zval *property, zval *value TSRMLS_DC) {
+#else
+void php_objectmonitor_write_property_handler(zval *object, zval *property, zval *value, const struct _zend_literal *key TSRMLS_DC) {
+#endif
 	zend_object_handle handleOfCurrentObject;
 	zval* propertyArray;
 	zval** propertyArray_p;
 
 	handleOfCurrentObject = Z_OBJ_HANDLE(*object);
-	
+
 	if (zend_hash_index_find(Z_ARRVAL_P(OBJECTMONITOR_G(list_of_changed_objects)), handleOfCurrentObject, (void **)&propertyArray_p) == FAILURE) {
 		// Array entry for current object not found -> create it!
 		MAKE_STD_ZVAL(propertyArray);
@@ -99,7 +103,11 @@ void php_objectmonitor_write_property_handler(zval *object, zval *property, zval
 	add_assoc_zval(propertyArray, Z_STRVAL_P(property), value);
 
 	// call original property handler to actually change the property / call __set etc..
-	OBJECTMONITOR_G(original_write_property_handler)(object, property, value TSRMLS_DC);
+#if PHP_VERSION_ID < 50399
+	OBJECTMONITOR_G(original_write_property_handler)(object, property, value TSRMLS_CC);
+#else
+	OBJECTMONITOR_G(original_write_property_handler)(object, property, value, key TSRMLS_CC);
+#endif
 }
 
 /**
